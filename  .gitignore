@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production Build (Frontend)
+dist/
+build/
+
+# Environment Variables (Sangat Penting: Jangan di-push)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+local-scraper-backend/*.log
+
+# Editor / OS Files
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Scraper Backend specific
+local-scraper-backend/node_modules/
+local-scraper-backend/.env

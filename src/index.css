@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-main: #f3f4f6;
+  --bg-surface: #ffffff;
+  --bg-inner: #f9fafb;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border: #d1d5db;
+  --accent: #000000;
+  font-family: 'Outfit', sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg-main); color: var(--text-main); }
+
+.app-container {
+  max-width: 1400px; /* Lebih lebar untuk peta besar */
+  width: 98%;
+  margin: 20px auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-inner);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 18px; }
+
+.top-section {
+  display: grid;
+  grid-template-columns: 320px 1fr; /* Sidebar tetap, Peta fleksibel */
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar {
+  padding: 32px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--bg-inner);
+}
+
+.map-area {
+  height: 600px; /* Peta jauh lebih besar */
+  position: relative;
+}
+
+.bottom-section {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+.section-label::before { content: ''; width: 8px; height: 8px; background: var(--accent); }
+
+.ui-card { background: #fff; border: 1px solid var(--border); padding: 16px; }
+.ui-input-wrapper { border: 1px solid var(--border); padding: 12px; display: flex; align-items: center; gap: 12px; background: #fff; }
+.ui-input-wrapper input { border: none; outline: none; width: 100%; font-weight: 700; text-transform: uppercase; }
+
+.btn-ui {
+  background: transparent; border: 1px solid var(--border); padding: 12px;
+  font-size: 11px; font-weight: 800; text-transform: uppercase; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-ui-active { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-ui:disabled { opacity: 0.3; }
+
+.status-badge { padding: 4px 12px; font-size: 10px; font-weight: 800; border: 1px solid var(--accent); }
+.status-online { background: var(--accent); color: white; }
+
+.ui-table-wrapper { border: 1px solid var(--border); background: #fff; min-height: 300px; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 10px; font-weight: 800; padding: 16px; border-bottom: 1px solid var(--border); background: var(--bg-inner); }
+td { padding: 16px; font-size: 13px; border-bottom: 1px solid var(--border); }
+
+.info-box { background: var(--bg-inner); border: 1px solid var(--border); padding: 16px; display: flex; gap: 16px; font-size: 10px; }
