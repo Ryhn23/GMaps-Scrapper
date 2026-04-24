@@ -135,6 +135,14 @@ function App() {
           </div>
 
           <div className="section-group">
+            <div className="section-label">Radius</div>
+            <div className="ui-card">
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'10px', fontWeight:800}}><span>DISTANCE</span><span>{radius}M</span></div>
+              <input type="range" min="100" max="5000" step="100" value={radius} onChange={(e) => setRadius(parseInt(e.target.value))}/>
+            </div>
+          </div>
+
+          <div className="section-group">
             <div className="section-label">Item Limit</div>
             <div className="ui-card">
               <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'10px', fontWeight:800}}><span>MAX ITEMS</span><span>{maxItems}</span></div>
