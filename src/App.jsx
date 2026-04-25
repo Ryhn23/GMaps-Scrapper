@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Download, Loader2, Trash2, Navigation, Star, Zap, Layers, 
-  ChevronDown, ChevronUp, CheckSquare, Square, Tag, MapPin, MessageSquare, Info as InfoIcon
+  ChevronDown, ChevronUp, CheckSquare, Square, Tag, MapPin, MessageSquare, Info as InfoIcon,
+  Sun, Moon
 } from 'lucide-react';
 import Papa from 'papaparse';
 import MapSelector from './components/MapSelector';
@@ -28,6 +29,14 @@ function App() {
   const [deepOptions, setDeepOptions] = useState({
     rating: true, category: true, address: true, phone: true, website: true, about: false
   });
+  
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('scrape_dark_mode') === 'true');
+
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    localStorage.setItem('scrape_dark_mode', darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     localStorage.setItem('scrape_center', JSON.stringify(center));
@@ -111,33 +120,42 @@ function App() {
 
       <header>
         <div className="header-title">GMaps Data Scrapper</div>
-        <div className={`status-badge ${backendStatus === 'ONLINE' ? 'status-online' : 'status-offline'}`}>ENGINE {backendStatus}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button 
+            onClick={() => setDarkMode(!darkMode)} 
+            className="btn-ui" 
+            style={{ padding: '8px', width: '36px', height: '36px', border: 'none', background: 'var(--bg-inner)', borderRadius: '8px' }}
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <div className={`status-badge ${backendStatus === 'ONLINE' ? 'status-online' : 'status-offline'}`}>ENGINE {backendStatus}</div>
+        </div>
       </header>
 
-      <div className="top-section" style={{ height: '800px', display: 'grid', gridTemplateColumns: '300px 1fr', gap: '20px' }}>
-        <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingRight: '10px' }}>
-          <div style={{ display: 'flex', gap: '4px', background: '#eee', padding: '4px', borderRadius: '4px', marginBottom: '20px', flexShrink: 0 }}>
-            <button onClick={() => setActiveTab('quick')} className={`btn-ui ${activeTab === 'quick' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '8px', fontSize: '10px' }}><Zap size={12}/> QUICK</button>
-            <button onClick={() => setActiveTab('deep')} className={`btn-ui ${activeTab === 'deep' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '8px', fontSize: '10px' }}><Layers size={12}/> DEEP</button>
+      <div className="top-section" style={{ minHeight: '880px' }}>
+        <aside className="sidebar">
+          <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-inner)', padding: '4px', borderRadius: '4px', marginBottom: '20px', flexShrink: 0 }}>
+            <button onClick={() => setActiveTab('quick')} className={`btn-ui ${activeTab === 'quick' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '10px', fontSize: '11px' }}><Zap size={14}/> QUICK</button>
+            <button onClick={() => setActiveTab('deep')} className={`btn-ui ${activeTab === 'deep' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '10px', fontSize: '11px' }}><Layers size={14}/> DEEP</button>
           </div>
 
           <div className="section-group">
             <div className="section-label">Target Area</div>
             <div className="ui-input-wrapper">
-              <Navigation size={14} color="#666" />
+              <Navigation size={14} color="var(--text-muted)" />
               <input type="text" value={addressSearch} placeholder="Jump to address..." onChange={(e) => setAddressSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleJumpToLocation()}/>
             </div>
           </div>
 
           <div className="section-group">
             <div className="section-label">Query</div>
-            <div className="ui-input-wrapper"><Search size={14} color="#666" /><input type="text" value={keyword} onChange={(e) => setKeyword(e.target.value.toUpperCase())}/></div>
+            <div className="ui-input-wrapper"><Search size={14} color="var(--text-muted)" /><input type="text" value={keyword} onChange={(e) => setKeyword(e.target.value.toUpperCase())}/></div>
           </div>
 
           <div className="section-group">
             <div className="section-label">Radius</div>
             <div className="ui-card">
-              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'10px', fontWeight:800}}><span>DISTANCE</span><span>{radius}M</span></div>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'11px', fontWeight:800}}><span>DISTANCE</span><span>{radius}M</span></div>
               <input type="range" min="100" max="5000" step="100" value={radius} onChange={(e) => setRadius(parseInt(e.target.value))}/>
             </div>
           </div>
@@ -145,7 +163,7 @@ function App() {
           <div className="section-group">
             <div className="section-label">Item Limit</div>
             <div className="ui-card">
-              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'10px', fontWeight:800}}><span>MAX ITEMS</span><span>{maxItems}</span></div>
+              <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', fontSize:'11px', fontWeight:800}}><span>MAX ITEMS</span><span>{maxItems}</span></div>
               <input type="range" min="1" max="50" value={maxItems} onChange={(e) => setMaxItems(parseInt(e.target.value))}/>
             </div>
           </div>
@@ -153,11 +171,11 @@ function App() {
           {activeTab === 'deep' && (
             <div className="section-group">
               <div className="section-label">Deep Extraction Options</div>
-              <div className="ui-card" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="ui-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {Object.keys(deepOptions).map(key => (
-                  <div key={key} onClick={() => setDeepOptions(prev => ({...prev, [key]: !prev[key]}))} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '10px', fontWeight: 800 }}>
-                    {deepOptions[key] ? <CheckSquare size={14} fill="#000" color="#fff"/> : <Square size={14} color="#ddd"/>}
-                    <span style={{ color: deepOptions[key] ? '#000' : '#999' }}>{key.toUpperCase()}</span>
+                  <div key={key} onClick={() => setDeepOptions(prev => ({...prev, [key]: !prev[key]}))} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', fontSize: '11px', fontWeight: 800 }}>
+                    {deepOptions[key] ? <CheckSquare size={16} fill="var(--accent)" color="var(--accent-text)"/> : <Square size={16} color="var(--border)"/>}
+                    <span style={{ color: deepOptions[key] ? 'var(--text-main)' : 'var(--text-muted)' }}>{key.toUpperCase()}</span>
                   </div>
                 ))}
               </div>
@@ -192,9 +210,9 @@ function App() {
                   (activeTab === 'quick' ? quickResults : deepResults).map((item, idx) => (
                     <React.Fragment key={idx}>
                       <tr>
-                        <td style={{fontWeight: 800, fontSize: '12px'}}>{item.name}</td>
-                        <td><div style={{display:'flex', alignItems:'center', gap: '4px'}}><Star size={10} fill="#000"/> {item.rating}</div></td>
-                        <td style={{fontSize:'11px', color:'#444'}}>{item.address}</td>
+                        <td style={{fontWeight: 800, fontSize: '13px'}}>{item.name}</td>
+                        <td><div style={{display:'flex', alignItems:'center', gap: '4px'}}><Star size={10} fill="var(--accent)"/> {item.rating}</div></td>
+                        <td style={{fontSize:'12px', color:'var(--text-muted)'}}>{item.address}</td>
                         {activeTab === 'deep' && (
                           <td>
                             <button onClick={() => setExpandedRow(expandedRow === idx ? null : idx)} className="btn-ui" style={{padding: '4px 10px'}}>
@@ -205,15 +223,15 @@ function App() {
                       </tr>
                       {activeTab === 'deep' && expandedRow === idx && (
                         <tr>
-                          <td colSpan="4" style={{ padding: '24px', background: '#f9f9f9', borderBottom: '2px solid #000' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '11px' }}>
-                                {item.phone && <div><b>PHONE:</b> {item.phone}</div>}
-                                {item.website && <div><b>WEBSITE:</b> {item.website}</div>}
-                                {item.category && <div><b>CATEGORY:</b> {item.category}</div>}
+                          <td colSpan="4" style={{ padding: '24px', background: 'var(--bg-inner)', borderBottom: '2px solid var(--accent)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
+                                {item.phone && <div><b style={{color:'var(--text-muted)'}}>PHONE:</b> {item.phone}</div>}
+                                {item.website && <div><b style={{color:'var(--text-muted)'}}>WEBSITE:</b> {item.website}</div>}
+                                {item.category && <div><b style={{color:'var(--text-muted)'}}>CATEGORY:</b> {item.category}</div>}
                                 {item.about && (
-                                  <div style={{ marginTop: '10px', padding: '10px', background: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
-                                    <div style={{ fontWeight: 800, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}><InfoIcon size={12}/> ABOUT / FACILITIES</div>
-                                    <div style={{ color: '#666', lineHeight: '1.4' }}>{item.about}</div>
+                                  <div style={{ marginTop: '10px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+                                    <div style={{ fontWeight: 800, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}><InfoIcon size={14}/> ABOUT / FACILITIES</div>
+                                    <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>{item.about}</div>
                                   </div>
                                 )}
                             </div>
@@ -230,6 +248,11 @@ function App() {
           </div>
         </div>
       </div>
+
+      <footer style={{ textAlign: 'center', padding: '12px 20px', fontSize: '12px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', background: 'var(--bg-inner)' }}>
+        <div style={{ opacity: 0.6 }}>Experimental Proof of Concept Project</div>
+        <div style={{ color: 'var(--text-main)', fontWeight: 700, marginTop: '2px' }}>Made with ❤️ by Ray</div>
+      </footer>
     </div>
   );
 }

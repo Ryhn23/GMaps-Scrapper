@@ -41,7 +41,7 @@ app.post('/scrape', async (req, res) => {
     return res.status(429).json({ error: 'Engine is currently busy processing another request. Please wait.' });
   }
 
-  const { lat, lng, keyword, type = 'quick', options = {}, limit: reqLimit } = req.body;
+  const { lat, lng, radius = 1000, keyword, type = 'quick', options = {}, limit: reqLimit } = req.body;
   
   // 2. INPUT VALIDATION (Pencegahan request cacat)
   if (!lat || !lng || !keyword) {
@@ -51,10 +51,18 @@ app.post('/scrape', async (req, res) => {
   // 3. HARD CAP LIMIT (Pencegahan DDoS lewat parameter)
   const limitVal = Math.min(parseInt(reqLimit) || 20, 50); 
   
+  // 4. KONVERSI RADIUS KE ZOOM LEVEL GOOGLE MAPS
+  // Semakin kecil radius, semakin besar zoom level (mendekat)
+  let zoomLevel = 15;
+  if (radius <= 500) zoomLevel = 17;
+  else if (radius <= 1000) zoomLevel = 16;
+  else if (radius <= 3000) zoomLevel = 14;
+  else if (radius > 3000) zoomLevel = 13;
+  
   isScraping = true;
   currentProgress = { current: 0, total: 0, status: 'initializing' };
   
-  console.log(`\n[JOB] Starting: ${keyword} | Mode: ${type} | Limit: ${limitVal}`);
+  console.log(`\n[JOB] Starting: ${keyword} | Mode: ${type} | Limit: ${limitVal} | Radius: ${radius}m (Zoom: ${zoomLevel}z)`);
   
   let browser;
   try {
@@ -79,7 +87,7 @@ app.post('/scrape', async (req, res) => {
     await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
     console.log(`[BOT] Loading URL and handling consent...`);
-    const url = `https://www.google.com/maps/search/${encodeURIComponent(keyword)}/@${lat},${lng},15z`;
+    const url = `https://www.google.com/maps/search/${encodeURIComponent(keyword)}/@${lat},${lng},${zoomLevel}z`;
     await page.goto(url, { waitUntil: 'networkidle2' });
     
     // 2. BY-PASS GOOGLE CONSENT (Mencegah Layar Tertutup Popup)
@@ -127,79 +135,177 @@ app.post('/scrape', async (req, res) => {
     console.log(`[BOT] Extraction started for ${limit} items...`);
 
     for (let i = 0; i < limit; i++) {
+      let detailPage = null;
       try {
         const elements = await page.$$('div[role="article"]');
         if (!elements[i]) continue;
 
-        await page.evaluate((el) => el.scrollIntoView(), elements[i]);
-        
-        // Coba klik elemen link di dalamnya jika ada (Lebih aman dari klik div kosong)
-        const link = await elements[i].$('a');
-        if (link) await link.click();
-        else await elements[i].click();
-        
-        // PENTING: Waktu absolut untuk menunggu panel detail terbuka penuh
-        await delay(2500, 3500);
+        // Ambil URL langsung dari elemen (Lebih stabil daripada klik UI)
+        const aHandle = await elements[i].$('a');
+        const href = aHandle ? await page.evaluate(a => a.href, aHandle) : null;
 
-        let aboutData = "";
-
-        if (type === 'deep' && options.about) {
-          try {
-            const aboutBtn = await page.evaluateHandle(() => {
-              const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
-              return tabs.find(t => t.innerText.includes('About') || t.innerText.includes('Tentang'));
-            });
-            if (aboutBtn.asElement()) {
-              await aboutBtn.asElement().click();
-              await delay(1500, 2000);
-              aboutData = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll('.iP2t7d')).map(sec => {
-                  const title = sec.querySelector('.fontTitleSmall')?.innerText || "";
-                  const items = Array.from(sec.querySelectorAll('.m6QErb li')).map(li => li.innerText).join(', ');
-                  return title ? `${title}: ${items}` : items;
-                }).join(' | ');
-              });
-              const overview = await page.evaluateHandle(() => {
-                const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
-                return tabs.find(t => t.innerText.includes('Overview') || t.innerText.includes('Ringkasan'));
-              });
-              if (overview.asElement()) await overview.asElement().click();
-              await delay(800, 1200);
-            }
-          } catch(e) {}
+        if (!href) {
+           console.log(`[-] Warning: Item ${i + 1} skipped (No link found)`);
+           currentProgress.current = i + 1;
+           continue;
         }
 
-        const data = await page.evaluate((isDeep, opts, about) => {
-          const getText = (sel) => document.querySelector(sel)?.innerText || "";
-          const infoElements = Array.from(document.querySelectorAll('button[data-item-id]'));
-          
-          let ratingVal = getText('div.F7nice span[aria-hidden="true"]') || getText('span[role="img"]');
-          if(!ratingVal || ratingVal.trim() === '') ratingVal = "0.0";
+        // BUKA DI TAB BARU: 100% Akurat, tidak terganggu animasi/overlay SPA
+        detailPage = await browser.newPage();
+        
+        // SUPER OPTIMIZATION: Blokir resource visual agar loading 10x lebih cepat & anti-timeout!
+        await detailPage.setRequestInterception(true);
+        detailPage.on('request', (req) => {
+           if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
+              req.abort();
+           } else {
+              req.continue();
+           }
+        });
 
-          // Cari nama tempat dengan cerdas (Abaikan h1 pembawa teks sistem)
-          let placeName = "";
-          const h1s = Array.from(document.querySelectorAll('h1'));
-          for (let h of h1s) {
-            const txt = h.innerText ? h.innerText.trim() : "";
-            if (txt.length > 0 && !txt.toLowerCase().includes('results') && !txt.toLowerCase().includes('hasil')) {
-              placeName = txt;
-            }
-          }
+        await detailPage.setViewport({ width: 1366, height: 768 });
+        await detailPage.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        
+        // Memuat halaman dengan sangat cepat karena CSS/Gambar diblokir
+        try {
+           await detailPage.goto(href, { waitUntil: 'domcontentloaded', timeout: 12000 });
+        } catch(e) {
+           // Jika loading masih tersendat, abaikan errornya dan biarkan bot mengekstrak DOM yang sudah ada!
+        }
+        
+        try { 
+           await detailPage.waitForSelector('h1', { timeout: 5000 }); 
+           await delay(1800); // Waktu bernapas ekstra agar XHR data tereksekusi
+        } catch(e) {}
 
-          const result = {
-            name: placeName,
-            rating: ratingVal,
-            address: infoElements.find(el => el.getAttribute('data-item-id')?.includes('address'))?.innerText || "N/A",
-            type: isDeep ? 'DEEP' : 'QUICK'
-          };
-          if (isDeep) {
-            if (opts.category) result.category = getText('button[jsaction="pane.rating.category"]');
-            if (opts.phone) result.phone = infoElements.find(el => el.getAttribute('data-item-id')?.includes('phone'))?.innerText;
-            if (opts.website) result.website = infoElements.find(el => el.getAttribute('data-item-id')?.includes('authority'))?.innerText;
-            if (opts.about) result.about = about;
-          }
-          return result;
-        }, type === 'deep', options, aboutData);
+        // 1. EKSTRAKSI OVERVIEW DULU (Rating, Address, Phone, Website)
+        // Harus dilakukan sebelum pindah ke tab lain!
+        let overviewData = await detailPage.evaluate((isDeep, opts) => {
+           // Helper cerdas: Ambil dari aria-label agar terhindar dari Ikon Font
+           const getAria = (sel, regex) => {
+              const el = document.querySelector(sel);
+              if (el && el.getAttribute('aria-label')) {
+                 return el.getAttribute('aria-label').replace(regex, '').trim();
+              }
+              if (el) return el.innerText.replace(/[\uE000-\uF8FF]/g, '').trim(); 
+              return null;
+           };
+
+           let placeName = document.querySelector('h1')?.innerText || document.title.replace(' - Google Maps', '').trim();
+           
+           let rating = "0.0";
+           const ratingEl = document.querySelector('div.F7nice span[aria-hidden="true"]');
+           if (ratingEl) rating = ratingEl.innerText.replace(',', '.').trim();
+           
+           let address = getAria('button[data-item-id*="address"]', /^(Address|Alamat):\s*/i);
+           
+           let result = {
+              name: placeName,
+              rating: rating,
+              address: address || "N/A",
+              type: isDeep ? 'DEEP' : 'QUICK'
+           };
+           
+           if (isDeep) {
+              const catBtn = document.querySelector('button[jsaction="pane.rating.category"]') || document.querySelector('button.DkEaL');
+              if (opts.category) result.category = catBtn ? catBtn.innerText.trim() : "N/A";
+              
+              if (opts.phone) result.phone = getAria('button[data-item-id*="phone"]', /^(Phone|Telepon):\s*/i) || "N/A";
+              if (opts.website) result.website = getAria('button[data-item-id*="authority"]', /^(Website|Situs Web):\s*/i) || "N/A";
+           }
+           return result;
+        }, type === 'deep', options);
+
+        // 2. EKSTRAKSI KHUSUS ABOUT (TENTANG)
+        // Dilakukan TERAKHIR karena akan mengubah tampilan layar (Overview akan tertutup)
+        let aboutData = "N/A";
+        if (type === 'deep' && options.about) {
+           try {
+              const clicked = await detailPage.evaluate(() => {
+                 const tabs = Array.from(document.querySelectorAll('button[role="tab"], div[role="tab"]'));
+                 // PENTING: Gunakan toLowerCase() agar kebal terhadap teks kapital 'ABOUT' atau 'TENTANG'
+                 const aboutTab = tabs.find(t => {
+                    const txt = t.innerText.toLowerCase();
+                    return txt === 'about' || txt === 'tentang' || txt.includes('about') || txt.includes('tentang');
+                 });
+                 if (aboutTab) {
+                    aboutTab.scrollIntoView({ behavior: 'instant', block: 'center' });
+                    aboutTab.click();
+                    return true;
+                 }
+                 return false;
+              });
+              
+              if (clicked) {
+                 await delay(4500); // Waktu tunggu MAXIMAL agar tab About pasti terambil sempurna
+                 
+                 aboutData = await detailPage.evaluate(() => {
+                    // VERIFIKASI MUTLAK: Pastikan tab yang aktif (aria-selected="true") benar-benar tab About!
+                    const activeTab = document.querySelector('button[role="tab"][aria-selected="true"], div[role="tab"][aria-selected="true"]');
+                    if (!activeTab) return "N/A";
+                    
+                    const activeTxt = activeTab.innerText.toLowerCase();
+                    const isAbout = activeTxt === 'about' || activeTxt === 'tentang' || activeTxt.includes('about') || activeTxt.includes('tentang');
+                    if (!isAbout) return "N/A"; // Klik gagal atau loading nyangkut di Overview. Lebih baik N/A daripada salah data!
+
+                    const mainPanel = document.querySelector('div[role="main"]') || document.body;
+                    const uls = Array.from(mainPanel.querySelectorAll('ul'));
+                    
+                    // Fungsi Filter Universal
+                    const isOpeningHours = (str) => {
+                       const lower = str.toLowerCase();
+                       return /senin|selasa|rabu|kamis|jumat|jum'at|sabtu|minggu|monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(lower) || 
+                              /\d{1,2}:\d{2}/.test(lower) || 
+                              /am\s*-|pm\s*-|-\s*am|-\s*pm|am|pm/i.test(lower);
+                    };
+
+                    if (uls.length === 0) {
+                       const tabPanel = document.querySelector('div[role="tabpanel"]');
+                       if (tabPanel && tabPanel.innerText.length > 10) {
+                          const text = tabPanel.innerText.replace(/[\uE000-\uF8FF]/g, '').trim();
+                          // Jangan biarkan fallback mengambil opening hours!
+                          if (isOpeningHours(text)) return "N/A";
+                          return text.replace(/\n+/g, ' | ');
+                       }
+                       return "N/A";
+                    }
+                    
+                    let result = [];
+                    uls.forEach(ul => {
+                       let parent = ul.parentElement;
+                       let heading = "";
+                       for (let i = 0; i < 3; i++) {
+                          if (!parent) break;
+                          const h = parent.querySelector('h2, [role="heading"], .fontTitleSmall, .fontTitleMedium');
+                          if (h && h.innerText) {
+                             heading = h.innerText.replace(/[\uE000-\uF8FF]/g, '').trim();
+                             break;
+                          }
+                          parent = parent.parentElement;
+                       }
+                       
+                       const items = Array.from(ul.querySelectorAll('li'))
+                          .map(li => li.innerText.replace(/[\uE000-\uF8FF]/g, '').trim())
+                          .filter(t => t).join(', ');
+                          
+                       if (items) {
+                          // Terapkan filter pada item
+                          if (isOpeningHours(items)) return; 
+                          result.push(heading ? `${heading}: ${items}` : items);
+                       }
+                    });
+                    
+                    return result.length > 0 ? result.join(' | ') : "N/A";
+                 });
+              }
+           } catch(e) {
+              console.log(`[!] Failed to extract About info for item ${i+1}`);
+           }
+        }
+
+        // 3. GABUNGKAN DATA
+        const data = { ...overviewData };
+        if (type === 'deep') data.about = aboutData;
 
         if (data.name) {
           results.push(data);
@@ -207,10 +313,11 @@ app.post('/scrape', async (req, res) => {
         } else {
           console.log(`[-] Warning: Item ${i + 1} skipped (Name not found)`);
         }
-        currentProgress.current = i + 1;
       } catch (e) { 
         console.log(`[!] Error item ${i+1}: ${e.message}`);
-        continue; 
+      } finally {
+        if (detailPage) await detailPage.close();
+        currentProgress.current = i + 1;
       }
     }
 
