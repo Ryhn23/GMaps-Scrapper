@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Download, Loader2, Trash2, Navigation, Star, Zap, Layers, 
   ChevronDown, ChevronUp, CheckSquare, Square, Tag, MapPin, MessageSquare, Info as InfoIcon,
-  Sun, Moon
+  Sun, Moon, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import Papa from 'papaparse';
 import MapSelector from './components/MapSelector';
@@ -31,6 +31,7 @@ function App() {
   });
   
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('scrape_dark_mode') === 'true');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -132,8 +133,9 @@ function App() {
         </div>
       </header>
 
-      <div className="top-section" style={{ minHeight: '880px' }}>
-        <aside className="sidebar">
+      <div className="top-section">
+        <div className={`sidebar-wrapper ${sidebarOpen ? 'open' : ''}`}>
+          <aside className="sidebar">
           <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-inner)', padding: '4px', borderRadius: '4px', marginBottom: '20px', flexShrink: 0 }}>
             <button onClick={() => setActiveTab('quick')} className={`btn-ui ${activeTab === 'quick' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '10px', fontSize: '11px' }}><Zap size={14}/> QUICK</button>
             <button onClick={() => setActiveTab('deep')} className={`btn-ui ${activeTab === 'deep' ? 'btn-ui-active' : ''}`} style={{ flex: 1, padding: '10px', fontSize: '11px' }}><Layers size={14}/> DEEP</button>
@@ -183,9 +185,13 @@ function App() {
           )}
 
           <button onClick={handleStartScrape} disabled={loading || !center} className="btn-ui btn-ui-active" style={{padding: '16px', marginTop: 'auto', fontSize: '11px', flexShrink: 0}}>START EXTRACTION</button>
-        </aside>
+          </aside>
+          <button className="mobile-sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </button>
+        </div>
 
-        <main className="map-area" style={{ height: '100%' }}>
+        <main className="map-area">
           <MapSelector center={center} radius={radius} onLocationSelect={setCenter} />
         </main>
       </div>
